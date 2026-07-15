@@ -25,9 +25,8 @@ void handle_client(int client_fd){
 
             string response =
                 "HTTP/1.1 200 OK\r\n"
-                "Content-Length: 5\r\n"
-                "\r\n"
-                "hello\r\n";
+                "Connection: keep-alive\r\n"
+                "\r\n";
             send(client_fd, response.c_str(), response.size(), 0);
             parser.reset();
         }

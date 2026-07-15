@@ -5,6 +5,7 @@
 #include<iostream>
 #include<unistd.h>
 #include<thread>
+#include"../http/threadPool.h"
 
 
 Server::Server(int p){
@@ -16,10 +17,12 @@ void Server::start(){
     listener.bind_socket();
     listener.listen_socket();
     std::cout<<"server starts listening on "<<port<<std::endl;
+
+    ThreadPool pool(3);
     while(true){
         int client_fd = listener.accept_con();
-        std::thread t(handle_client, client_fd);
-        t.detach();
+        pool.enqueue(client_fd);
+        
     }
 
 }
