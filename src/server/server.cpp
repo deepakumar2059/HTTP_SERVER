@@ -1,11 +1,11 @@
 #include"server.h"
-#include"../http/handler.h"
 #include"../network/socket.h"
 #include<sys/socket.h>
 #include<iostream>
 #include<unistd.h>
-#include<thread>
-#include"../http/threadPool.h"
+#include<sys/epoll.h>
+#include<fcntl.h>
+#include"connections.h"
 
 
 Server::Server(int p){
@@ -18,43 +18,87 @@ void Server::start(){
     listener.listen_socket();
     std::cout<<"server starts listening on "<<port<<std::endl;
 
-    ThreadPool pool(3);
+    fcntl(listener.fd, F_SETFL, O_NONBLOCK);
+
+    int epfd = epoll_create1(0);
+    epoll_event ev;
+    ev.events = EPOLLIN;
+    ev.data.fd = listener.fd;
+
+    epoll_ctl(epfd, EPOLL_CTL_ADD, listener.fd, &ev);
+
+    epoll_event events[1024];
+    unordered_map<int, Connections*>connections;
+
+
     while(true){
-        int client_fd = listener.accept_con();
-        pool.enqueue(client_fd);
-        
-    }
+        int n = epoll_wait(epfd, events, 1024, -1);
+        for(int i = 0; i < n; i++){
+            int fd = events[i].data.fd;
+            //handle the listner to add more connections 
+            if(fd == listener.fd){
+                while(true){
+                    int client_fd = listener.accept_con();
+                    if(client_fd < 0){
+                        break;
+                    }
 
-}
-
-
-
-
-
-
-/*
-while(true){
-    int client_fd = accept();
-    string buffer;
-    while(true){
-        char temp[1024];
-        int n = recv(client_fd, temp, 1024, 0);
-        if( n <= 0){
-            break;
-        }
-        
-        buffer.append(buffer, n);
-        while(true){
-            if(!request_complete(buffer)){
-                break;
+                    fcntl(client_fd, F_SETFL, O_NONBLOCK);
+                    Connections * obj = new Connections();
+                    obj->fd = client_fd;
+                    connections[client_fd] = obj;
+                    epoll_event client_ev;
+                    client_ev.events = EPOLLIN|EPOLLERR | EPOLLHUP;
+                    client_ev.data.fd = client_fd;
+                    epoll_ctl(epfd, EPOLL_CTL_ADD, client_fd, &client_ev);
+                }
             }
-            request = extract(buffer);
-            response = process(request);
-            sendAll(resonse);
+            //handle the read or write event of a connection 
+            else{ 
+                if(events[i].events & (EPOLLERR | EPOLLHUP)){
+                    close(fd);
+                    delete connections[fd];
+                    connections.erase(fd);
+                    continue;
+                }
+
+                auto &conn = connections[fd];
+
+
+                if(events[i].events & EPOLLIN){
+                    conn->handle_read();
+                }
+                if(events[i].events & EPOLLOUT){
+                    conn->handle_write();
+                }
+
+                if(conn->state == Connections::CLOSED){
+                    close(fd);
+                    delete connections[fd];
+                    connections.erase(fd);
+                    continue;
+                }
+                epoll_event ev;
+                ev.data.fd = fd;
+
+                if(connections[fd]->state == Connections::WRITING){
+                    ev.events = EPOLLOUT| EPOLLERR| EPOLLHUP;
+                }
+                else{
+                    ev.events = EPOLLIN | EPOLLERR | EPOLLHUP;
+                    
+                }
+                epoll_ctl(epfd, EPOLL_CTL_MOD, fd, &ev);
+            }
+
+
         }
+        
     }
+
 }
-*/
+
+
 
 
 
