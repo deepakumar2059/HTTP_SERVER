@@ -97,21 +97,3 @@ void Server::start(){
     }
 
 }
-
-
-
-
-
-/*
-void sendAll(){
-    int len = data.size();
-    int totalSent = 0;
-    while(totalSent < len){
-        int n = send(fd, data + totalSent, len -totalSent, 0);
-        if(n <= 0){
-            break;
-        }
-        totalSent += n;
-    }
-}
-*/
