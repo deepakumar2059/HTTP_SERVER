@@ -6,6 +6,7 @@
 #include<sys/epoll.h>
 #include<fcntl.h>
 #include"connections.h"
+#include"../log/logger.h"
 
 
 Server::Server(int p){
@@ -16,7 +17,7 @@ void Server::start(){
     listener.create();
     listener.bind_socket();
     listener.listen_socket();
-    std::cout<<"server starts listening on "<<port<<std::endl;
+    Logger::log(INFO, "Server started on port "+ std::to_string(port));
 
     fcntl(listener.fd, F_SETFL, O_NONBLOCK);
 
@@ -42,6 +43,7 @@ void Server::start(){
                     if(client_fd < 0){
                         break;
                     }
+                    Logger::log(INFO, "New connection fd=" + std::to_string(client_fd));
 
                     fcntl(client_fd, F_SETFL, O_NONBLOCK);
                     Connections * obj = new Connections();

@@ -4,6 +4,7 @@
 #include<fcntl.h>
 #include<sys/stat.h>
 #include<unistd.h>
+#include"../log/logger.h"
 
 
 /* 
@@ -119,6 +120,7 @@ void Connections::handle_read(){
         int n = recv(fd, temp, 1024, 0);
 
         if(n == 0){
+            Logger::log(INFO, "Client disconnected fd=" + std::to_string(fd));
             state = CLOSED;
             return;
         }
@@ -126,6 +128,7 @@ void Connections::handle_read(){
             if(errno == EAGAIN || errno == EWOULDBLOCK){
                 return ;
             }
+            Logger::log(ERROR, "recv failed fd=" + std::to_string(fd));
             state = CLOSED;
             return ;
         }
@@ -133,8 +136,9 @@ void Connections::handle_read(){
         while(parser.consume(buffer) == Parser::COMPLETE){
             Request request = parser.getRequest();
             parser.reset();
-            std::cout<<request.method<<"\n";
-            std::cout<<request.resource<<"\n";
+            Logger::log(INFO, 
+                "Request: " + request.method + " " + request.resource +
+                " fd=" + std::to_string(fd));
             handler_response_builder(request);
         }
         if(!response_queue.empty()){
